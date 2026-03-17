@@ -4,6 +4,14 @@ import * as cheerio from "cheerio";
 
 const puppeteer = puppeteerCore;
 
+function normalizeSkillrackUrl(inputUrl) {
+  const parsed = new URL(inputUrl);
+  if (parsed.hostname.endsWith("skillrack.com") && parsed.protocol === "http:") {
+    parsed.protocol = "https:";
+  }
+  return parsed.toString();
+}
+
 function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
 
@@ -108,8 +116,10 @@ export async function fetchData(url) {
   let browser = null;
   try {
     console.log("Fetching data from URL:", url);
+    const normalizedUrl = normalizeSkillrackUrl(url);
+
     // Extract the resume id from the URL
-    const urlObj = new URL(url);
+    const urlObj = new URL(normalizedUrl);
     const pathParts = urlObj.pathname.split("/");
     const id = pathParts[2]; // ID is the third part in /profile/ID/...
     console.log("Extracted ID:", id);
@@ -117,8 +127,8 @@ export async function fetchData(url) {
     // Fast path for serverless: try plain HTTP first to avoid expensive browser startup.
     try {
       console.log("Attempting direct HTML fetch...");
-      const html = await fetchHtmlDirect(url);
-      const fastResult = buildProfileFromHtml(html, url, id);
+      const html = await fetchHtmlDirect(normalizedUrl);
+      const fastResult = buildProfileFromHtml(html, normalizedUrl, id);
       if (fastResult) {
         console.log("Direct fetch parse succeeded.");
         return fastResult;
@@ -165,6 +175,14 @@ export async function fetchData(url) {
     await page.setRequestInterception(true);
     page.on("request", (request) => {
       const blockedTypes = new Set(["image", "font", "media", "stylesheet"]);
+      const isMainNavigation =
+        request.isNavigationRequest() && request.frame() === page.mainFrame();
+
+      if (isMainNavigation) {
+        request.continue();
+        return;
+      }
+
       if (blockedTypes.has(request.resourceType())) {
         request.abort();
       } else {
@@ -174,13 +192,31 @@ export async function fetchData(url) {
 
     // Use DOM load instead of network idle to avoid hanging on persistent connections.
     console.log("Navigating to skillrack...");
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 12000 });
+    try {
+      await page.goto(normalizedUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 12000,
+      });
+    } catch (navigationError) {
+      if (String(navigationError.message || "").includes("ERR_BLOCKED_BY_CLIENT")) {
+        console.log(
+          "Navigation was blocked by interception, retrying without interception...",
+        );
+        await page.setRequestInterception(false);
+        await page.goto(normalizedUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 12000,
+        });
+      } else {
+        throw navigationError;
+      }
+    }
     await page.waitForSelector("div.ui.four.wide.center.aligned.column", {
       timeout: 5000,
     });
 
     const data = await page.content();
-    const browserResult = buildProfileFromHtml(data, url, id);
+    const browserResult = buildProfileFromHtml(data, normalizedUrl, id);
 
     if (!browserResult) {
       throw new Error("Unable to parse profile from Skillrack page.");
