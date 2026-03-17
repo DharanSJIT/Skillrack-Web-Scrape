@@ -25,6 +25,20 @@ function normalizeSkillrackUrl(inputUrl) {
 function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
 
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+
+  const getTextByLabel = (labelPattern) => {
+    const regex = new RegExp(`${labelPattern}\\s*[:\\-]?\\s*([^:|]{2,120})`, "i");
+    const match = bodyText.match(regex);
+    return match ? match[1].trim() : "";
+  };
+
+  const getNumberByLabel = (labelPattern) => {
+    const regex = new RegExp(`${labelPattern}\\s*[:\\-]?\\s*(\\d+)`, "i");
+    const match = bodyText.match(regex);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
   let rawText = [];
   for (const selector of profileSelectors) {
     const candidate = $(selector)
@@ -40,39 +54,65 @@ function buildProfileFromHtml(html, url, id) {
     }
   }
 
-  if (!rawText.length) {
+  const hasProfileHints =
+    rawText.length > 0 ||
+    /roll|department|college|programs solved|code track|code test|skillrack/i.test(
+      bodyText,
+    );
+
+  if (!hasProfileHints) {
     return null;
   }
 
-  const name = rawText[0] || "Not found";
-  const rollNumber = rawText[2] || "Not found";
-  const dept = rawText[4] || "Not found";
-  const college = rawText[6] || "Not found";
-  const yearInfo = rawText[8] || "Not found";
+  const titleText = $("title").text().trim();
+  const titleName = titleText.includes("-")
+    ? titleText.split("-")[0].trim()
+    : titleText;
+
+  const name =
+    rawText[0] ||
+    getTextByLabel("name") ||
+    (titleName && !/skillrack/i.test(titleName) ? titleName : "") ||
+    "Not found";
+  const rollNumber = rawText[2] || getTextByLabel("roll\\s*number") || "Not found";
+  const dept =
+    rawText[4] || getTextByLabel("department|dept") || "Not found";
+  const college =
+    rawText[6] || getTextByLabel("college|institution") || "Not found";
+  const yearInfo =
+    rawText[8] || getTextByLabel("year(?:\\s*of\\s*study)?|batch") || "Not found";
   const yearMatch = yearInfo.match(/\d{4}$/);
   const year = yearMatch ? yearMatch[0] : "Not found";
 
-  const codeTutor =
+  const codeTutorFromDom =
     parseInt($('div:contains("DT")').next().find(".value").text().trim(), 10) ||
     0;
-  const codeTrack =
+  const codeTrackFromDom =
     parseInt(
       $('div:contains("CODE TEST")').next().find(".value").text().trim(),
       10,
     ) || 0;
-  const codeTest =
+  const codeTestFromDom =
     parseInt(
       $('div:contains("PROGRAMS SOLVED")').next().find(".value").text().trim(),
       10,
     ) || 0;
-  const dt =
+  const dtFromDom =
     parseInt($('div:contains("DC")').next().find(".value").text().trim(), 10) ||
     0;
-  const dc =
+  const dcFromDom =
     parseInt(
       $('div:contains("CODE TRACK")').next().find(".value").text().trim(),
       10,
     ) || 0;
+
+  const codeTutor = codeTutorFromDom || getNumberByLabel("\\bDT\\b|daily\\s*test");
+  const codeTrack =
+    codeTrackFromDom || getNumberByLabel("code\\s*test|tests?\\s*completed");
+  const codeTest =
+    codeTestFromDom || getNumberByLabel("programs?\\s*solved|code\\s*tutor");
+  const dt = dtFromDom || getNumberByLabel("\\bDC\\b|daily\\s*challenge");
+  const dc = dcFromDom || getNumberByLabel("code\\s*track");
 
   const points = codeTrack * 2 + codeTest * 30 + dt * 20 + dc * 2;
   const totalSolved = dt + codeTutor + dc + codeTrack + codeTest;
