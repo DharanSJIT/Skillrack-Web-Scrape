@@ -129,7 +129,9 @@ export async function fetchData(url) {
         console.log("Direct fetch parse succeeded.");
         return fastResult;
       }
-      console.log("Direct fetch parse did not find required fields. Falling back to browser.");
+      console.log(
+        "Direct fetch parse did not find required fields. Falling back to browser.",
+      );
     } catch (directError) {
       console.log("Direct fetch path failed:", directError.message);
     }
