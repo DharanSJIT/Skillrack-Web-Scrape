@@ -9,28 +9,35 @@ const envOrigins = (process.env.CORS_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
   "https://skillrack.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   ...envOrigins,
-];
+]);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+
+  // Allow Vercel preview/branch URLs for this frontend project
+  return /^https:\/\/skillrack(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
+}
 
 const corsOptions = {
   origin(origin, callback) {
-    // Allow non-browser requests (no Origin) and configured frontends
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    return callback(new Error("Not allowed by CORS"));
+    return callback(null, false);
   },
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
 };
 
 // Middleware
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 app.use(express.json());
 // Routes
 app.get("/", (req, res) => {
