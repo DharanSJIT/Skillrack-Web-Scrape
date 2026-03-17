@@ -73,7 +73,9 @@ export async function fetchData(url) {
     };
   } catch (error) {
     console.error(`Error fetching data: ${error.message}`);
-    console.error(`Invalid URL or network error: ${url}`);
-    return null;
+    console.error(`Status code: ${error.response?.status}`);
+    console.error(`Network error: ${url}`);
+    // Instead of completely suppressing it into 'null', we re-throw to Controller
+    throw new Error(`Scraper failed: ${error.message}`);
   }
 }

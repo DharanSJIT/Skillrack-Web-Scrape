@@ -15,14 +15,14 @@ export const fetchProfile = async (req, res) => {
     const data = await fetchData(url);
 
     if (!data) {
-      return res.status(500).json({ error: 'Failed to fetch profile data' });
+      return res.status(500).json({ error: 'Failed to fetch profile data. Service might be broken natively on Vercel' });
     }
 
     // Response Data is now built securely directly from the scraper returns, 
     // without needing to mutate from the spread operator (already done in service).
     res.json(data);
   } catch (error) {
-    console.error('API Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('API Error:', error.message || error);
+    res.status(500).json({ error: error.message || 'Internal server error while processing' });
   }
 };
