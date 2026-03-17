@@ -1,4 +1,9 @@
-import puppeteer from 'puppeteer-core';
+import { addExtra } from 'puppeteer-extra';
+import puppeteerCore from 'puppeteer-core';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+const puppeteer = addExtra(puppeteerCore);
+puppeteer.use(StealthPlugin());
 import chromium from '@sparticuz/chromium';
 import * as cheerio from 'cheerio';
 
