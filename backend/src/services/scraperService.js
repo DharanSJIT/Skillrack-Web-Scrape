@@ -1,8 +1,9 @@
-import axios from 'axios';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import * as cheerio from 'cheerio';
-import * as fs from 'fs';
 
 export async function fetchData(url) {
+  let browser = null;
   try {
     console.log('Fetching data from URL:', url);
     // Extract the resume id from the URL
@@ -11,16 +12,40 @@ export async function fetchData(url) {
     const id = pathParts[2]; // ID is the third part in /profile/ID/...
     console.log('Extracted ID:', id);
 
-    const { data } = await axios.get(url, {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-    const $ = cheerio.load(data);
+    // Determine if we are running locally or on Vercel
+    const isLocal = !process.env.VERCEL_ENV && !process.env.VERCEL;
+    
+    console.log('Launching browser. isLocal:', isLocal);
+    
+    // For local macOS dev, point to the system Chrome
+    // For Vercel, use sparticuz to download and locate the lambda-optimized Chromium
+    const executablePath = isLocal 
+      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' 
+      : await chromium.executablePath();
 
-    console.log('Page HTML length:', data.length);
-    console.log('First 1000 characters of HTML:', data.substring(0, 1000));
+    browser = await puppeteer.launch({
+      args: isLocal ? [] : chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: executablePath,
+      headless: isLocal ? true : chromium.headless,
+    });
+
+    const page = await browser.newPage();
+    
+    // Disguise as a real user
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({
+       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+       'Accept-Language': 'en-US,en;q=0.9',
+       'Referer': 'https://www.skillrack.com/'
+    });
+
+    // networkidle2 ensures page finishes background JS requests
+    console.log('Navigating to skillrack...');
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    
+    const data = await page.content();
+    const $ = cheerio.load(data);
 
     // Extract data from the page
     const rawText = $('div.ui.four.wide.center.aligned.column').text().trim().split('\n');
@@ -48,75 +73,6 @@ export async function fetchData(url) {
     const date = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
     const lastFetched = date.split(',')[1].trim();
 
-    // Generate HTML content
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkillRack Profile - ${name}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .profile { max-width: 800px; margin: 0 auto; }
-        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        h1 { color: #333; }
-        .data-item { margin: 10px 0; }
-        .label { font-weight: bold; }
-        .points { background: #f0f0f0; padding: 10px; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <div class="profile">
-        <h1>SkillRack Profile</h1>
-
-        <div class="section">
-            <h2>Personal Information</h2>
-            <div class="data-item"><span class="label">Name:</span> ${name}</div>
-            <div class="data-item"><span class="label">Roll Number:</span> ${rollNumber}</div>
-            <div class="data-item"><span class="label">Department:</span> ${dept}</div>
-            <div class="data-item"><span class="label">Year:</span> ${year}</div>
-            <div class="data-item"><span class="label">College:</span> ${college}</div>
-        </div>
-
-        <div class="section points">
-            <h2>Points Breakdown</h2>
-            <div class="data-item"><span class="label">Code Tutor:</span> ${codeTutor}</div>
-            <div class="data-item"><span class="label">Code Track:</span> ${codeTrack} (${codeTrack * 2} points)</div>
-            <div class="data-item"><span class="label">Code Test:</span> ${codeTest} (${codeTest * 30} points)</div>
-            <div class="data-item"><span class="label">DT:</span> ${dt} (${dt * 20} points)</div>
-            <div class="data-item"><span class="label">DC:</span> ${dc} (${dc * 2} points)</div>
-            <div class="data-item"><span class="label">Total Points:</span> ${points}</div>
-        </div>
-
-        <div class="section">
-            <h2>Additional Information</h2>
-            <div class="data-item"><span class="label">Profile URL:</span> <a href="${url}" target="_blank">${url}</a></div>
-            <div class="data-item"><span class="label">Last Fetched:</span> ${lastFetched}</div>
-        </div>
-    </div>
-</body>
-</html>`;
-
-    // Display results in console
-    console.log('\n=== SkillRack Profile Data ===');
-    console.log(`Name: ${name}`);
-    console.log(`Roll Number: ${rollNumber}`);
-    console.log(`Department: ${dept}`);
-    console.log(`Year Info: ${yearInfo}`);
-    console.log(`College: ${college}`);
-    console.log('\n=== Points Breakdown ===');
-    console.log(`Code Tutor: ${codeTutor}`);
-    console.log(`Code Track: ${codeTrack} (${codeTrack} x 2 = ${codeTrack * 2} points)`);
-    console.log(`Code Test: ${codeTest} (${codeTest} x 30 = ${codeTest * 30} points)`);
-    console.log(`DT: ${dt} (${dt} x 20 = ${dt * 20} points)`);
-    console.log(`DC: ${dc} (${dc} x 2 = ${dc * 2} points)`);
-    console.log('\n=== Summary ===');
-    console.log(`Total Points: ${points}`);
-    console.log(`Profile URL: ${url}`);
-    console.log(`Last Fetched: ${lastFetched}`);
-    console.log('============================\n');
-
     return {
       id, name, dept, year, college,
       codeTutor, codeTrack, codeTest, dt, dc,
@@ -124,7 +80,13 @@ export async function fetchData(url) {
     };
   } catch (error) {
     console.error(`Error fetching data: ${error.message}`);
-    console.error(`Invalid URL or network error: ${url}`);
-    return null;
+    console.error(`Status code: ${error.response?.status}`);
+    console.error(`Network error: ${url}`);
+    throw new Error(`Scraper failed: ${error.message}`);
+  } finally {
+    if (browser !== null) {
+      await browser.close();
+      console.log('Browser closed cleanly.');
+    }
   }
 }
