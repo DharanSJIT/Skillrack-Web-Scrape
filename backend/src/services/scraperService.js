@@ -4,6 +4,13 @@ import * as cheerio from "cheerio";
 
 const puppeteer = puppeteerCore;
 
+const profileSelectors = [
+  "div.ui.four.wide.center.aligned.column",
+  "div.four.wide.center.aligned.column",
+  "div.ui.four.wide.column",
+  "div[class*='four wide'][class*='aligned']",
+];
+
 function normalizeSkillrackUrl(inputUrl) {
   const parsed = new URL(inputUrl);
   if (
@@ -18,12 +25,20 @@ function normalizeSkillrackUrl(inputUrl) {
 function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
 
-  const rawText = $("div.ui.four.wide.center.aligned.column")
-    .text()
-    .trim()
-    .split("\n")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  let rawText = [];
+  for (const selector of profileSelectors) {
+    const candidate = $(selector)
+      .first()
+      .text()
+      .trim()
+      .split("\n")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (candidate.length > rawText.length) {
+      rawText = candidate;
+    }
+  }
 
   if (!rawText.length) {
     return null;
@@ -216,9 +231,16 @@ export async function fetchData(url) {
         throw navigationError;
       }
     }
-    await page.waitForSelector("div.ui.four.wide.center.aligned.column", {
-      timeout: 5000,
-    });
+    try {
+      await page.waitForFunction(
+        (selectors) => selectors.some((selector) => document.querySelector(selector)),
+        { timeout: 5000 },
+        profileSelectors,
+      );
+    } catch {
+      // Continue and attempt to parse full page HTML with fallback selectors.
+      console.log("Profile container selector not found quickly; parsing page anyway.");
+    }
 
     const data = await page.content();
     const browserResult = buildProfileFromHtml(data, normalizedUrl, id);
