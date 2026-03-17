@@ -22,7 +22,9 @@ export default function App() {
     setData(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/fetch-profile', {
+      // Use the injected Vercel API URL if available, else fallback to relative/local route
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/fetch-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
