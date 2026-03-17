@@ -1,6 +1,9 @@
 import { addExtra } from 'puppeteer-extra';
 import puppeteerCore from 'puppeteer-core';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+// Force Vercel to trace and bundle these dependencies
+import 'puppeteer-extra-plugin-user-preferences';
+import 'puppeteer-extra-plugin-user-data-dir';
 
 const puppeteer = addExtra(puppeteerCore);
 puppeteer.use(StealthPlugin());
