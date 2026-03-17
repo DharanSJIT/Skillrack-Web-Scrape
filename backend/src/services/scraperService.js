@@ -22,6 +22,33 @@ function normalizeSkillrackUrl(inputUrl) {
   return parsed.toString();
 }
 
+function extractProfileId(parsedUrl) {
+  const queryId = parsedUrl.searchParams.get("id");
+  if (queryId) {
+    return queryId;
+  }
+
+  const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+  const profileIndex = pathParts.findIndex((part) => part === "profile");
+  if (profileIndex >= 0 && pathParts[profileIndex + 1]) {
+    return pathParts[profileIndex + 1];
+  }
+
+  return "unknown";
+}
+
+function buildCandidateUrls(parsedUrl, id) {
+  const normalized = parsedUrl.toString();
+  const candidates = [normalized];
+
+  if (id && id !== "unknown") {
+    candidates.push(`https://www.skillrack.com/faces/resume.xhtml?id=${id}`);
+    candidates.push(`https://www.skillrack.com/profile/${id}`);
+  }
+
+  return [...new Set(candidates)];
+}
+
 function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
 
@@ -221,26 +248,42 @@ export async function fetchData(url) {
     console.log("Fetching data from URL:", url);
     const normalizedUrl = normalizeSkillrackUrl(url);
 
-    // Extract the resume id from the URL
+    // Build multiple URL variants because some Skillrack paths get blocked while others still work.
     const urlObj = new URL(normalizedUrl);
-    const pathParts = urlObj.pathname.split("/");
-    const id = pathParts[2]; // ID is the third part in /profile/ID/...
+    const id = extractProfileId(urlObj);
+    const candidateUrls = buildCandidateUrls(urlObj, id);
     console.log("Extracted ID:", id);
+    console.log("Candidate URLs:", candidateUrls);
 
     // Fast path for serverless: try plain HTTP first to avoid expensive browser startup.
-    try {
-      console.log("Attempting direct HTML fetch...");
-      const html = await fetchHtmlDirect(normalizedUrl);
-      const fastResult = buildProfileFromHtml(html, normalizedUrl, id);
-      if (fastResult) {
-        console.log("Direct fetch parse succeeded.");
-        return fastResult;
+    let lastDirectError = null;
+    for (const candidateUrl of candidateUrls) {
+      try {
+        console.log("Attempting direct HTML fetch:", candidateUrl);
+        const html = await fetchHtmlDirect(candidateUrl);
+        const fastResult = buildProfileFromHtml(html, candidateUrl, id);
+        if (fastResult) {
+          console.log("Direct fetch parse succeeded.");
+          return fastResult;
+        }
+        console.log(
+          "Direct fetch parse returned empty data for:",
+          candidateUrl,
+        );
+      } catch (directError) {
+        lastDirectError = directError;
+        console.log(
+          "Direct fetch attempt failed:",
+          candidateUrl,
+          directError.message,
+        );
       }
+    }
+    if (lastDirectError) {
       console.log(
-        "Direct fetch parse did not find required fields. Falling back to browser.",
+        "Direct fetch path exhausted. Last error:",
+        lastDirectError.message,
       );
-    } catch (directError) {
-      console.log("Direct fetch path failed:", directError.message);
     }
 
     // Determine if we are running locally or on Vercel
@@ -294,50 +337,74 @@ export async function fetchData(url) {
     });
 
     // Use DOM load instead of network idle to avoid hanging on persistent connections.
-    console.log("Navigating to skillrack...");
-    try {
-      await page.goto(normalizedUrl, {
-        waitUntil: "domcontentloaded",
-        timeout: 12000,
-      });
-    } catch (navigationError) {
-      if (
-        String(navigationError.message || "").includes("ERR_BLOCKED_BY_CLIENT")
-      ) {
-        console.log(
-          "Navigation was blocked by interception, retrying without interception...",
-        );
-        await page.setRequestInterception(false);
-        await page.goto(normalizedUrl, {
+    let lastBrowserError = null;
+    for (const candidateUrl of candidateUrls) {
+      console.log("Navigating to skillrack:", candidateUrl);
+      try {
+        await page.goto(candidateUrl, {
           waitUntil: "domcontentloaded",
           timeout: 12000,
         });
-      } else {
-        throw navigationError;
+      } catch (navigationError) {
+        if (
+          String(navigationError.message || "").includes(
+            "ERR_BLOCKED_BY_CLIENT",
+          )
+        ) {
+          console.log(
+            "Navigation was blocked by interception, retrying without interception...",
+          );
+          await page.setRequestInterception(false);
+          await page.goto(candidateUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 12000,
+          });
+        } else {
+          lastBrowserError = navigationError;
+          console.log(
+            "Navigation failed for:",
+            candidateUrl,
+            navigationError.message,
+          );
+          continue;
+        }
+      }
+
+      try {
+        await page.waitForFunction(
+          (selectors) =>
+            selectors.some((selector) => document.querySelector(selector)),
+          { timeout: 5000 },
+          profileSelectors,
+        );
+      } catch {
+        // Continue and attempt to parse full page HTML with fallback selectors.
+        console.log(
+          "Profile container selector not found quickly; parsing page anyway.",
+        );
+      }
+
+      try {
+        const data = await page.content();
+        const browserResult = buildProfileFromHtml(data, candidateUrl, id);
+
+        if (browserResult) {
+          return browserResult;
+        }
+      } catch (parseError) {
+        lastBrowserError = parseError;
+        console.log(
+          "Browser parse failed for:",
+          candidateUrl,
+          parseError.message,
+        );
       }
     }
-    try {
-      await page.waitForFunction(
-        (selectors) =>
-          selectors.some((selector) => document.querySelector(selector)),
-        { timeout: 5000 },
-        profileSelectors,
-      );
-    } catch {
-      // Continue and attempt to parse full page HTML with fallback selectors.
-      console.log(
-        "Profile container selector not found quickly; parsing page anyway.",
-      );
-    }
 
-    const data = await page.content();
-    const browserResult = buildProfileFromHtml(data, normalizedUrl, id);
-
-    if (!browserResult) {
-      throw new Error("Unable to parse profile from Skillrack page.");
-    }
-
-    return browserResult;
+    throw (
+      lastBrowserError ||
+      new Error("Unable to parse profile from Skillrack page.")
+    );
   } catch (error) {
     console.error(`Error fetching data: ${error.message}`);
     console.error(`Status code: ${error.response?.status}`);
