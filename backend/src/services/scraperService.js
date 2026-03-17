@@ -28,7 +28,10 @@ function buildProfileFromHtml(html, url, id) {
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
 
   const getTextByLabel = (labelPattern) => {
-    const regex = new RegExp(`${labelPattern}\\s*[:\\-]?\\s*([^:|]{2,120})`, "i");
+    const regex = new RegExp(
+      `${labelPattern}\\s*[:\\-]?\\s*([^:|]{2,120})`,
+      "i",
+    );
     const match = bodyText.match(regex);
     return match ? match[1].trim() : "";
   };
@@ -74,13 +77,15 @@ function buildProfileFromHtml(html, url, id) {
     getTextByLabel("name") ||
     (titleName && !/skillrack/i.test(titleName) ? titleName : "") ||
     "Not found";
-  const rollNumber = rawText[2] || getTextByLabel("roll\\s*number") || "Not found";
-  const dept =
-    rawText[4] || getTextByLabel("department|dept") || "Not found";
+  const rollNumber =
+    rawText[2] || getTextByLabel("roll\\s*number") || "Not found";
+  const dept = rawText[4] || getTextByLabel("department|dept") || "Not found";
   const college =
     rawText[6] || getTextByLabel("college|institution") || "Not found";
   const yearInfo =
-    rawText[8] || getTextByLabel("year(?:\\s*of\\s*study)?|batch") || "Not found";
+    rawText[8] ||
+    getTextByLabel("year(?:\\s*of\\s*study)?|batch") ||
+    "Not found";
   const yearMatch = yearInfo.match(/\d{4}$/);
   const year = yearMatch ? yearMatch[0] : "Not found";
 
@@ -106,7 +111,8 @@ function buildProfileFromHtml(html, url, id) {
       10,
     ) || 0;
 
-  const codeTutor = codeTutorFromDom || getNumberByLabel("\\bDT\\b|daily\\s*test");
+  const codeTutor =
+    codeTutorFromDom || getNumberByLabel("\\bDT\\b|daily\\s*test");
   const codeTrack =
     codeTrackFromDom || getNumberByLabel("code\\s*test|tests?\\s*completed");
   const codeTest =
