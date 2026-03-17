@@ -26,6 +26,18 @@ function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
 
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const titleText = $("title").text().trim();
+
+  const isCloudflareChallenge =
+    /cloudflare|attention required|verify you are human|checking your browser/i.test(
+      `${titleText} ${bodyText}`,
+    );
+
+  if (isCloudflareChallenge) {
+    throw new Error(
+      "Skillrack blocked automated access (Cloudflare challenge). Exact counts are unavailable right now.",
+    );
+  }
 
   const getTextByLabel = (labelPattern) => {
     const regex = new RegExp(
@@ -67,7 +79,6 @@ function buildProfileFromHtml(html, url, id) {
     return null;
   }
 
-  const titleText = $("title").text().trim();
   const titleName = titleText.includes("-")
     ? titleText.split("-")[0].trim()
     : titleText;
@@ -122,6 +133,23 @@ function buildProfileFromHtml(html, url, id) {
 
   const points = codeTrack * 2 + codeTest * 30 + dt * 20 + dc * 2;
   const totalSolved = dt + codeTutor + dc + codeTrack + codeTest;
+
+  const looksInvalidProfile =
+    /not found/i.test(name) &&
+    /not found/i.test(rollNumber) &&
+    /not found/i.test(dept) &&
+    /not found/i.test(college) &&
+    codeTutor === 0 &&
+    codeTrack === 0 &&
+    codeTest === 0 &&
+    dt === 0 &&
+    dc === 0;
+
+  if (looksInvalidProfile) {
+    throw new Error(
+      "Could not extract exact counts from Skillrack profile page. Try again in a minute.",
+    );
+  }
 
   const date = new Date().toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",

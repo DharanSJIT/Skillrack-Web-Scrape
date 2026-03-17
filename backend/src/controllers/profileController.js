@@ -33,7 +33,13 @@ export const fetchProfile = async (req, res) => {
   } catch (error) {
     console.error("API Error:", error.message || error);
     const message = error.message || "Internal server error";
-    const statusCode = message.toLowerCase().includes("timed out") ? 504 : 500;
+    const lower = message.toLowerCase();
+    const statusCode = lower.includes("timed out")
+      ? 504
+      : lower.includes("cloudflare") ||
+          lower.includes("blocked automated access")
+        ? 503
+        : 500;
     res.status(statusCode).json({ error: message });
   }
 };
