@@ -6,7 +6,10 @@ const puppeteer = puppeteerCore;
 
 function normalizeSkillrackUrl(inputUrl) {
   const parsed = new URL(inputUrl);
-  if (parsed.hostname.endsWith("skillrack.com") && parsed.protocol === "http:") {
+  if (
+    parsed.hostname.endsWith("skillrack.com") &&
+    parsed.protocol === "http:"
+  ) {
     parsed.protocol = "https:";
   }
   return parsed.toString();
@@ -198,7 +201,9 @@ export async function fetchData(url) {
         timeout: 12000,
       });
     } catch (navigationError) {
-      if (String(navigationError.message || "").includes("ERR_BLOCKED_BY_CLIENT")) {
+      if (
+        String(navigationError.message || "").includes("ERR_BLOCKED_BY_CLIENT")
+      ) {
         console.log(
           "Navigation was blocked by interception, retrying without interception...",
         );
