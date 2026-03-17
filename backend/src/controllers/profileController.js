@@ -1,28 +1,37 @@
-import { fetchData } from '../services/scraperService.js';
+import { fetchData } from "../services/scraperService.js";
 
 export const fetchProfile = async (req, res) => {
   try {
     const { url } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
+      return res.status(400).json({ error: "URL is required" });
     }
 
-    if (!url.includes('skillrack.com') || !url.includes('profile')) {
-      return res.status(400).json({ error: 'Invalid SkillRack profile URL' });
+    if (!url.includes("skillrack.com") || !url.includes("profile")) {
+      return res.status(400).json({ error: "Invalid SkillRack profile URL" });
     }
 
-    const data = await fetchData(url);
+    const requestTimeoutMs = Number(process.env.SCRAPER_TIMEOUT_MS || 50000);
+    const data = await Promise.race([
+      fetchData(url),
+      new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Scraper timed out. Please try again.")),
+          requestTimeoutMs,
+        );
+      }),
+    ]);
 
     if (!data) {
-      return res.status(500).json({ error: 'Failed to fetch profile data' });
+      return res.status(500).json({ error: "Failed to fetch profile data" });
     }
 
-    // Response Data is now built securely directly from the scraper returns, 
+    // Response Data is now built securely directly from the scraper returns,
     // without needing to mutate from the spread operator (already done in service).
     res.json(data);
   } catch (error) {
-    console.error('API Error:', error.message || error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    console.error("API Error:", error.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 };
