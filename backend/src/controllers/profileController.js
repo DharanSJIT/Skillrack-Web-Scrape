@@ -34,12 +34,18 @@ export const fetchProfile = async (req, res) => {
     console.error("API Error:", error.message || error);
     const message = error.message || "Internal server error";
     const lower = message.toLowerCase();
-    const statusCode = lower.includes("timed out")
-      ? 504
-      : lower.includes("cloudflare") ||
-          lower.includes("blocked automated access")
-        ? 503
-        : 500;
-    res.status(statusCode).json({ error: message });
+    const isTimeout = lower.includes("timed out");
+    const isBlocked =
+      lower.includes("cloudflare") ||
+      lower.includes("blocked automated access");
+
+    const statusCode = isTimeout ? 504 : isBlocked ? 503 : 500;
+    const code = isTimeout
+      ? "SCRAPER_TIMEOUT"
+      : isBlocked
+        ? "UPSTREAM_BLOCKED"
+        : "SCRAPER_ERROR";
+
+    res.status(statusCode).json({ error: message, code });
   }
 };
