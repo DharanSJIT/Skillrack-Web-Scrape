@@ -233,13 +233,16 @@ export async function fetchData(url) {
     }
     try {
       await page.waitForFunction(
-        (selectors) => selectors.some((selector) => document.querySelector(selector)),
+        (selectors) =>
+          selectors.some((selector) => document.querySelector(selector)),
         { timeout: 5000 },
         profileSelectors,
       );
     } catch {
       // Continue and attempt to parse full page HTML with fallback selectors.
-      console.log("Profile container selector not found quickly; parsing page anyway.");
+      console.log(
+        "Profile container selector not found quickly; parsing page anyway.",
+      );
     }
 
     const data = await page.content();
