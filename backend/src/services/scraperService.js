@@ -1,14 +1,8 @@
-import { addExtra } from "puppeteer-extra";
 import puppeteerCore from "puppeteer-core";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-// Force Vercel to trace and bundle these dependencies
-import "puppeteer-extra-plugin-user-preferences";
-import "puppeteer-extra-plugin-user-data-dir";
-
-const puppeteer = addExtra(puppeteerCore);
-puppeteer.use(StealthPlugin());
 import chromium from "@sparticuz/chromium";
 import * as cheerio from "cheerio";
+
+const puppeteer = puppeteerCore;
 
 function buildProfileFromHtml(html, url, id) {
   const $ = cheerio.load(html);
@@ -85,7 +79,7 @@ function buildProfileFromHtml(html, url, id) {
 
 async function fetchHtmlDirect(url) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 7000);
 
   try {
     const response = await fetch(url, {
@@ -152,7 +146,7 @@ export async function fetchData(url) {
       defaultViewport: chromium.defaultViewport,
       executablePath: executablePath,
       headless: isLocal ? true : chromium.headless,
-      timeout: 15000,
+      timeout: 10000,
     });
 
     const page = await browser.newPage();
@@ -180,9 +174,9 @@ export async function fetchData(url) {
 
     // Use DOM load instead of network idle to avoid hanging on persistent connections.
     console.log("Navigating to skillrack...");
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 12000 });
     await page.waitForSelector("div.ui.four.wide.center.aligned.column", {
-      timeout: 7000,
+      timeout: 5000,
     });
 
     const data = await page.content();

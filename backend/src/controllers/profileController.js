@@ -12,7 +12,7 @@ export const fetchProfile = async (req, res) => {
       return res.status(400).json({ error: "Invalid SkillRack profile URL" });
     }
 
-    const requestTimeoutMs = Number(process.env.SCRAPER_TIMEOUT_MS || 50000);
+    const requestTimeoutMs = Number(process.env.SCRAPER_TIMEOUT_MS || 58000);
     const data = await Promise.race([
       fetchData(url),
       new Promise((_, reject) => {
@@ -32,6 +32,8 @@ export const fetchProfile = async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("API Error:", error.message || error);
-    res.status(500).json({ error: error.message || "Internal server error" });
+    const message = error.message || "Internal server error";
+    const statusCode = message.toLowerCase().includes("timed out") ? 504 : 500;
+    res.status(statusCode).json({ error: message });
   }
 };
