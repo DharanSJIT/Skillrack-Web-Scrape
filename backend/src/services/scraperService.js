@@ -1,62 +1,8 @@
-// server.js
-import express from 'express';
 import axios from 'axios';
-import cors from 'cors';
 import * as cheerio from 'cheerio';
 import * as fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
-
-// Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.post('/api/fetch-profile', async (req, res) => {
-  try {
-    const { url } = req.body;
-
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
-
-    if (!url.includes('skillrack.com') || !url.includes('profile')) {
-      return res.status(400).json({ error: 'Invalid SkillRack profile URL' });
-    }
-
-    const data = await fetchData(url);
-
-    if (!data) {
-      return res.status(500).json({ error: 'Failed to fetch profile data' });
-    }
-
-    // Add additional fields for the API response
-    const responseData = {
-      ...data,
-      rollNumber: data.rollNumber,
-      yearInfo: data.yearInfo
-    };
-
-    res.json(responseData);
-  } catch (error) {
-    console.error('API Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-async function fetchData(url) {
+export async function fetchData(url) {
   try {
     console.log('Fetching data from URL:', url);
     // Extract the resume id from the URL
@@ -152,11 +98,6 @@ async function fetchData(url) {
 </body>
 </html>`;
 
-    // Write HTML file - DISABLED to prevent Live Server auto-reload
-    // const fileName = `skillrack_profile_${id}.html`;
-    // fs.writeFileSync(fileName, htmlContent);
-    // console.log(`\nHTML file generated: ${fileName}`);
-
     // Display results in console
     console.log('\n=== SkillRack Profile Data ===');
     console.log(`Name: ${name}`);
@@ -179,7 +120,7 @@ async function fetchData(url) {
     return {
       id, name, dept, year, college,
       codeTutor, codeTrack, codeTest, dt, dc,
-      points, totalSolved, lastFetched, url
+      points, totalSolved, lastFetched, url, yearInfo, rollNumber
     };
   } catch (error) {
     console.error(`Error fetching data: ${error.message}`);
@@ -187,31 +128,3 @@ async function fetchData(url) {
     return null;
   }
 }
-
-// Get URL from command line argument or prompt
-async function main() {
-  let url = process.argv[2];
-
-  if (!url) {
-    // Start the web server
-    app.listen(PORT, () => {
-      console.log(`SkillRack Profile Scraper server is running on http://localhost:${PORT}`);
-      console.log('Open your browser and go to http://localhost:3000 to use the web interface');
-    });
-    return;
-  }
-
-  // Validate URL format
-  if (!url.includes('skillrack.com') || !url.includes('profile')) {
-    console.error('Error: Please provide a valid SkillRack profile URL');
-    console.error('Example: https://www.skillrack.com/profile/... or https://www.skillrack.com/faces/resume.xhtml?id=...');
-    process.exit(1);
-  }
-
-  await fetchData(url);
-}
-
-// Run the script
-main().catch(console.error);
-
-export { fetchData };
