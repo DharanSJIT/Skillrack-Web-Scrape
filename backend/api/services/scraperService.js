@@ -1,6 +1,5 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import * as fs from 'fs';
 
 export async function fetchData(url) {
   try {
