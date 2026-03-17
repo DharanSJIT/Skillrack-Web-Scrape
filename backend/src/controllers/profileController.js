@@ -37,7 +37,8 @@ export const fetchProfile = async (req, res) => {
     const isTimeout = lower.includes("timed out");
     const isBlocked =
       lower.includes("cloudflare") ||
-      lower.includes("blocked automated access");
+      lower.includes("blocked automated access") ||
+      lower.includes("retry after");
 
     const statusCode = isTimeout ? 504 : isBlocked ? 503 : 500;
     const code = isTimeout

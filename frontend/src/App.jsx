@@ -52,7 +52,8 @@ export default function App() {
 
         if (errData.code === "UPSTREAM_BLOCKED") {
           throw new Error(
-            "Skillrack blocked automated access right now. Please retry after 1-2 minutes.",
+            errData.error ||
+              "Skillrack blocked automated access for this IP/session. This can last longer than 1-2 minutes. Try again later or from a different network.",
           );
         }
 

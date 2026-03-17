@@ -33,15 +33,26 @@ function buildProfileFromHtml(html, url, id) {
       `${titleText} ${bodyText}`,
     );
 
+  const isSkillrackRateLimitBlock =
+    /blocked automated access|retry after\s*1\s*-\s*2\s*minutes|retry after\s*\d+\s*minutes/i.test(
+      bodyText,
+    );
+
   if (isCloudflareChallenge) {
     throw new Error(
       "Skillrack blocked automated access (Cloudflare challenge). Exact counts are unavailable right now.",
     );
   }
 
+  if (isSkillrackRateLimitBlock) {
+    throw new Error(
+      "Skillrack blocked automated access for this IP/session. This can last longer than 1-2 minutes. Try again later or from a different network.",
+    );
+  }
+
   const getTextByLabel = (labelPattern) => {
     const regex = new RegExp(
-      `${labelPattern}\\s*[:\\-]?\\s*([^:|]{2,120})`,
+      `(?:${labelPattern})\\s*[:\\-]?\\s*([^:|]{2,120})`,
       "i",
     );
     const match = bodyText.match(regex);
@@ -49,7 +60,7 @@ function buildProfileFromHtml(html, url, id) {
   };
 
   const getNumberByLabel = (labelPattern) => {
-    const regex = new RegExp(`${labelPattern}\\s*[:\\-]?\\s*(\\d+)`, "i");
+    const regex = new RegExp(`(?:${labelPattern})\\s*[:\\-]?\\s*(\\d+)`, "i");
     const match = bodyText.match(regex);
     return match ? parseInt(match[1], 10) : 0;
   };
