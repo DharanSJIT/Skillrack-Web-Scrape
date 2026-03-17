@@ -48,56 +48,6 @@ export async function fetchData(url) {
     const date = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
     const lastFetched = date.split(',')[1].trim();
 
-    // Generate HTML content
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkillRack Profile - ${name}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .profile { max-width: 800px; margin: 0 auto; }
-        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        h1 { color: #333; }
-        .data-item { margin: 10px 0; }
-        .label { font-weight: bold; }
-        .points { background: #f0f0f0; padding: 10px; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <div class="profile">
-        <h1>SkillRack Profile</h1>
-
-        <div class="section">
-            <h2>Personal Information</h2>
-            <div class="data-item"><span class="label">Name:</span> ${name}</div>
-            <div class="data-item"><span class="label">Roll Number:</span> ${rollNumber}</div>
-            <div class="data-item"><span class="label">Department:</span> ${dept}</div>
-            <div class="data-item"><span class="label">Year:</span> ${year}</div>
-            <div class="data-item"><span class="label">College:</span> ${college}</div>
-        </div>
-
-        <div class="section points">
-            <h2>Points Breakdown</h2>
-            <div class="data-item"><span class="label">Code Tutor:</span> ${codeTutor}</div>
-            <div class="data-item"><span class="label">Code Track:</span> ${codeTrack} (${codeTrack * 2} points)</div>
-            <div class="data-item"><span class="label">Code Test:</span> ${codeTest} (${codeTest * 30} points)</div>
-            <div class="data-item"><span class="label">DT:</span> ${dt} (${dt * 20} points)</div>
-            <div class="data-item"><span class="label">DC:</span> ${dc} (${dc * 2} points)</div>
-            <div class="data-item"><span class="label">Total Points:</span> ${points}</div>
-        </div>
-
-        <div class="section">
-            <h2>Additional Information</h2>
-            <div class="data-item"><span class="label">Profile URL:</span> <a href="${url}" target="_blank">${url}</a></div>
-            <div class="data-item"><span class="label">Last Fetched:</span> ${lastFetched}</div>
-        </div>
-    </div>
-</body>
-</html>`;
-
     // Display results in console
     console.log('\n=== SkillRack Profile Data ===');
     console.log(`Name: ${name}`);
